@@ -44,5 +44,5 @@ jobs:
       - name: Publish to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.YOUR_SECRENT_NAME }}
           publish_dir: output # Replace "output" with the directory that contains your site's generated output
