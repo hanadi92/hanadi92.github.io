@@ -1,0 +1,37 @@
+My Github Page with Pelican SSG
+#################################
+
+:date: 2023-03-27 02:26
+:modified: 2023-03-27 02:26
+:tags: Pelican, SSG, GithubPage
+:category: tech
+:slug: pelican-as-ssg
+:authors: Hanadi
+:summary: Trying out Pelican SSG for my Github Page.
+
+This is my first article of this fresh web-blog on Github Pages.
+After some research, I decided to try Pelican as a static site generator. Since it is Python based, I thought maybe I could add more custom features later on.
+The plan is to dump thoughts and experience in here, just for fun. Starting with setting up this project.
+
+First I had to create a project dir and start a venv there:
+
+.. code-block:: bash
+
+   mkdir myproject
+   cd myproject
+   virtualenv venv
+   source venv/bin/activate
+
+Then basically install pelican via pip and create a boilerplate:
+
+.. code-block:: bash
+
+   python -m pip install pelican
+   pelican-quickstart
+
+The quickstart command will start an interrogation to create config for the makefile, make sure to say "yes" to the Github Pages option.
+Makefile has all the required commands to generate and serve the site. Now I will push this to my Github Page and see how it goes!
+
+Next, I will play around with themes then create the 404 and about pages.
+
+Ciao!
