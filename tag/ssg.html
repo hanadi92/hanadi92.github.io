@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="generator" content="Pelican" />
+        <title>Etch - SSG</title>
+        <link rel="stylesheet" href="/theme/css/main.css" />
+</head>
+
+<body id="index" class="home">
+        <header id="banner" class="body">
+                <h1><a href="/">Etch</a></h1>
+                <nav><ul>
+                    <li><a href="/category/tech.html">tech</a></li>
+                </ul></nav>
+        </header><!-- /#banner -->
+
+            <aside id="featured" class="body">
+                <article>
+                    <h1 class="entry-title"><a href="/pelican-as-ssg.html">My Github Page with Pelican SSG</a></h1>
+<footer class="post-info">
+        <abbr class="published" title="2023-03-27T02:26:00+02:00">
+                Published: Mon 27 March 2023
+        </abbr>
+		<br />
+        <abbr class="modified" title="2023-03-27T02:26:00+02:00">
+                Updated: Mon 27 March 2023
+        </abbr>
+
+        <address class="vcard author">
+                By                         <a class="url fn" href="/author/hanadi.html">Hanadi</a>
+        </address>
+<p>In <a href="/category/tech.html">tech</a>.</p>
+<p>tags: <a href="/tag/pelican.html">Pelican</a> <a href="/tag/ssg.html">SSG</a> <a href="/tag/githubpage.html">GithubPage</a> </p>
+</footer><!-- /.post-info --><p>This is my first article of this fresh web-blog on Github Pages.
+After some research, I decided to try Pelican as a static site generator. Since it is Python based, I thought maybe I could add more custom features later on.
+The plan is to dump thoughts and experience in here, just for fun. Starting with setting up this project.</p>
+<p>First I had to create a project dir and start a venv there:</p>
+<div class="highlight"><pre><span></span>mkdir<span class="w"> </span>myproject
+<span class="nb">cd</span><span class="w"> </span>myproject
+virtualenv<span class="w"> </span>venv
+<span class="nb">source</span><span class="w"> </span>venv/bin/activate
+</pre></div>
+<p>Then basically install pelican via pip and create a boilerplate:</p>
+<div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>pelican
+pelican-quickstart
+</pre></div>
+<p>The quickstart command will start an interrogation to create config for the makefile, make sure to say &quot;yes&quot; to the Github Pages option.
+Makefile has all the required commands to generate and serve the site. Now I will push this to my Github Page and see how it goes!</p>
+<p>Next, I will play around with themes then create the 404 and about pages.</p>
+<p>Ciao!</p>
+                </article>
+            </aside><!-- /#featured -->
+        <section id="extras" class="body">
+                <div class="blogroll">
+                        <h2>links</h2>
+                        <ul>
+                            <li><a href="https://getpelican.com/">Pelican</a></li>
+                            <li><a href="https://www.python.org/">Python.org</a></li>
+                            <li><a href="https://palletsprojects.com/p/jinja/">Jinja2</a></li>
+                            <li><a href="#">You can modify those links in your config file</a></li>
+                        </ul>
+                </div><!-- /.blogroll -->
+                <div class="social">
+                        <h2>social</h2>
+                        <ul>
+
+                            <li><a href="#">You can add links in your config file</a></li>
+                            <li><a href="#">Another social link</a></li>
+                        </ul>
+                </div><!-- /.social -->
+        </section><!-- /#extras -->
+
+        <footer id="contentinfo" class="body">
+                <address id="about" class="vcard body">
+                Proudly powered by <a href="https://getpelican.com/">Pelican</a>, which takes great advantage of <a href="https://www.python.org/">Python</a>.
+                </address><!-- /#about -->
+
+                <p>The theme is by <a href="https://www.smashingmagazine.com/2009/08/designing-a-html-5-layout-from-scratch/">Smashing Magazine</a>, thanks!</p>
+        </footer><!-- /#contentinfo -->
+
+</body>
+</html>
