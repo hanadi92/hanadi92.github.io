@@ -15,6 +15,10 @@ Clone the repo. Run ```make regenerate``` to generate the output directory then 
 
 You are free to use the code in this repository as a template for your own website, or to modify it to suit your needs. However, please note that the content and images on my website are copyrighted and should not be reused without my permission.
 
+## Contributing
+
+```I would greatly appreciate receiving information about any errors noticed by the readers.``` -- by you know who.
+
 ## License
 
 This repository is licensed under the MIT License. See the LICENSE file for more details.
