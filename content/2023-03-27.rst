@@ -30,7 +30,49 @@ Then basically install pelican via pip and create a boilerplate:
    pelican-quickstart
 
 The quickstart command will start an interrogation to create config for the makefile, make sure to say "yes" to the Github Pages option.
-Makefile has all the required commands to generate and serve the site. Now I will push this to my Github Page and see how it goes!
+Makefile has all the required commands to generate and serve the site.
+In order to have auto deployment on Github actions, I added the following deployment workflow:
+
+.. code-block:: yaml
+
+   name: Pelican Deploy
+
+   on:
+   push:
+      branches: [ "master" ]
+   pull_request:
+      branches: [ "master" ]
+
+   jobs:
+   build:
+      runs-on: ubuntu-latest
+
+      steps:
+         - name: Checkout repository
+         uses: actions/checkout@v3
+
+         - name: Set up Python
+         uses: actions/setup-python@v2
+         with:
+            python-version: '3.x'
+
+         - name: Install dependencies
+         run: |
+            python -m pip install --upgrade pip
+            pip install pelican
+         - name: Generate site
+         run: |
+            pelican content
+         - name: Publish to GitHub Pages
+         uses: peaceiris/actions-gh-pages@v3
+         with:
+            github_token: ${{ secrets.YOUR_SECRENT_NAME }}
+            publish_dir: output
+
+After adding this deployment yaml file to .github/workflows/, I had to define YOUR_SECRENT_NAME as a variable in the repo and generate a personal token for it.
+This deployment workflow will generate the static content and push it to gh-pages branch (from where I had to select as my deployment page).
+
+Now I will push this to my Github Page and see how it goes!
 
 Next, I will play around with themes then create the 404 and about pages.
 
