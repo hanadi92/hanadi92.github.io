@@ -34,7 +34,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pelican markdown typogrify # Add any other dependencies your site needs
+          pip install pelican # markdown typogrify # Add any other dependencies your site needs
 
       - name: Generate site
         run: |
