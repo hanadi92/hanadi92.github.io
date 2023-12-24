@@ -1,0 +1,357 @@
+Webserver on OCI for free
+#################################
+
+:date: 2023-12-24 10:07
+:modified: 2023-12-24 10:07
+:tags: OCI, K3s, webserver
+:category: tech
+:slug: webserver-on-oci
+:authors: Hanadi
+:summary: Deploying a Webserver on K3s with OCI for free!
+
+I recently found out that OCI (Oracle Cloud Infrastructure) offers forever-free instances. So I thought, why not try to
+deploy a webserver on those.
+
+OCI Setup
+----------
+After signing up on `OCI <https://www.oracle.com/cloud/>`_, it is pretty much intuitive to create a forever-free instance.
+You can choose the placement, the used image, the shape of it, and get the ssh keys to connect later (IMPORTANT!).
+It takes some seconds before the instance is up and running.
+
+P.S. I chose an ``arm`` based instance, since K3s requires that architecture.
+
+Domain (Optional)
+------------------
+At this point, OCI sets and provides a public IP for the instance. You may register a new domain and assign it to the public IP.
+
+
+K3s
+----
+I chose K3s because it needs and consumes less resources as other distributions (K8s, minikube, MikroK8s). It has an easy installation guide,
+but here are some of my "I wish I knew before...".
+
+I always prefer to use the kubeconfig to access my cluster locally with LensIDE. Therefore, when I used the basic installation command to install k3s,
+the kubeconfig certificate was not valid for the public IP of the instance, rather only for the local network IP.
+The fix here was to add the parameter ``--tls-san public-ip`` in the ``INSTALL_K3S_EXEC`` variable.
+
+It would look something like this:
+
+.. code-block:: bash
+
+    curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--tls-san instance-public-ip --disable traefik" sh -
+
+notes:
+    I am more comfortable with ingress NGINX and use it as LoadBalancer. So I just disabled traefik.
+    K3s dumps the kubeconfig under /etc/rancher/k3s/k3s.yaml
+    K3s installs helm in the cluster by default
+
+
+FluxCD (Optional)
+------------------
+`FluxCD <https://fluxcd.io/>`_ is definitely optional, but trust me you want it!
+The most valuable feature is that you would push changes into git and it would just deploy it to your cluster (sync cluster state to git state).
+Since K3s installs Helm by default on the cluster, you can install Flux on the instance machine:
+
+.. code-block:: bash
+
+    curl -s https://fluxcd.io/install.sh | sudo bash
+
+then use helm or flux to install it on the cluster.
+You would definitely need to give Flux access to your git repository (e.g. Github) aka `bootstrap <https://fluxcd.io/flux/cmd/flux_bootstrap_github/>`_.
+Prepare a Personal Access Token for it through your Github account, and give it permission to push into the repo.
+
+It would look something like this (e.g. the git repo is personal and private on Github):
+
+.. code-block:: bash
+
+      flux bootstrap github --owner=<user> --repository=<repository name> --private=false --personal=true --path=clusters/my-cluster
+
+The CLI will then ask for the access token. That command would push into the repo under that specified path some kustomization yaml to do its magic.
+
+
+Ingress NGINX
+--------------
+In case you disabled Traefik as I did, you would need an ingress controller and probably a load-balancer service. So my choice is ingress NGINX.
+Since we have helm on the K3s, we could simply install ingress NGINX with helm:
+
+.. code-block:: bash
+
+    sudo helm upgrade --install ingress-nginx ingress-nginx --repo https://kubernetes.github.io/ingress-nginx --namespace ingress-nginx --create-namespace --kubeconfig=/etc/rancher/k3s/k3s.yaml
+
+Now we can define a load-balancer service something like this:
+
+.. code-block:: yaml
+
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: ingress-nginx-controller
+      namespace: ingress-nginx
+    spec:
+      type: LoadBalancer
+      externalIPs:
+        - instance-public-ip
+      ports:
+        - name: http
+          port: 80
+          targetPort: 80
+        - name: https
+          port: 443
+          targetPort: 443
+      selector:
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/instance: ingress-nginx
+
+
+If you have FluxCD, pushing this into the repo it would deploy the load-balancer service. Otherwise, use this command:
+
+.. code-block:: bash
+
+    sudo kubectl apply -f the-load-balancer-service-file.yaml
+
+
+Webserver (Application)
+------------------------
+As a proof of concept, I chose to set up a template webserver using Vite - VueJS.
+This webserver has a dockerfile that is built and pushed into the github image registry (package) of the repo.
+The image is then pulled from a deployment in the K3s cluster.
+
+I assume you have nodejs (includes npm) on your (local) machine. The following creates a template Vue app.
+
+.. code-block:: bash
+
+    npm install create-vite
+    npm create vite@latest my-vue-app -- --template vue
+    cd my-vue-app
+    npm install
+    npm run serve
+    # use browser to go wherever the cli tells you to
+
+Now we dockerize the building the Vue app using node image and serving it using an nginx image:
+
+.. code-block:: docker
+
+    FROM node:lts-alpine as build-stage
+    WORKDIR /app
+    COPY package*.json ./
+    RUN npm install
+    COPY . .
+    RUN npm run build
+
+    # production stage
+    FROM nginx:stable-alpine as production-stage
+    COPY --from=build-stage /app/dist /usr/share/nginx/html
+    EXPOSE 80
+    CMD ["nginx", "-g", "daemon off;"]
+
+
+Github Actions
+---------------
+In order to build that Dockerfile image and push into Github to pull it later from the cluster, we need the following github action workflow:
+
+note that the actions have to have permission to access the repository from ``repo->settings->actions->access``
+
+.. code-block:: yaml
+
+    name: Build and Push Image
+    on:
+      workflow_dispatch: # to manually trigger it
+    jobs:
+      build-and-push:
+        runs-on: ubuntu-latest
+        permissions:
+          contents: read
+          packages: write
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v3
+
+          - name: Set up Docker Buildx
+            uses: docker/setup-buildx-action@v2
+            with:
+              platforms: linux/arm64  # IMPORTANT IF YOU CHOOSE ARM INSTANCE IN OCI
+
+          - name: Log in to GitHub container registry
+            uses: docker/login-action@v1.10.0
+            with:
+              registry: ghcr.io
+              username: ${{ github.actor }}
+              password: ${{ github.token }}
+
+          - name: Build and push container image to registry
+            uses: docker/build-push-action@v2
+            with:
+              push: true
+              context: ...path-to-the-vue-app
+              tags: ghcr.io/webserver:${{ github.sha }}
+              file: ...path-to-the-dockerfile
+              platforms: linux/arm64  # IMPORTANT IF YOU CHOOSE ARM INSTANCE IN OCI
+
+When this workflow succeeds, it would create the docker image as a package under the repo packages.
+
+
+Webserver (Deployment & Secret)
+--------------------------------
+Now we need to pull the docker image from the cluster. We need a deployment that points to the image that the workflow built ``ghcr.io/webserver:${{ github.sha }}``.
+However, since this image is in a private registry we need a secret that includes the base46 of a github access token (that you need to generate) to be able to pull it. So in this article I will provide the secret structure, but it is more secure
+to use sealed-secrets (using ``kubeseal``) instead of normal secrets objects.
+So these are the needed steps:
+
+1. Generate an access token that has ``packages:read`` permission
+2. Use this command to decode it with base64:
+
+.. code-block:: bash
+
+    echo -n "your-github-username:github-access-token" | base64
+    echo -n '{"auths":{"ghcr.io":{"auth":"the-value-from-the-previous-command"}}}' | base64
+
+3. Add the value to this secret object:
+
+.. code-block:: yaml
+
+    kind: Secret
+    type: kubernetes.io/dockerconfigjson
+    apiVersion: v1
+    metadata:
+      name: github-secret
+      namespace: webserver-ns
+      labels:
+        app: app-name
+    data:
+      .dockerconfigjson: the-value-from-last-command
+
+
+4. If you have FluxCD, pushing this into the repo would deploy the load-balancer service. Otherwise, use this command:
+
+.. code-block:: bash
+
+    sudo kubectl apply -f the-secret-file.yaml
+
+
+4. Create the deployment to pull the image for the webserver:
+
+.. code-block:: yaml
+
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: webserver-deployment
+      namespace: webserver-ns
+    spec:
+      replicas: 1
+      template:
+        spec:
+          containers:
+          - name: webserver
+            image: ghcr.io/webserver:${{ github.sha }} # name of the image that you get under packages (copy the arm one)
+            ports:
+              - containerPort: 80
+                protocol: TCP
+          imagePullSecrets:
+          - name: github-secret
+
+5. Create a service to expose an IP and port for the webserver deployment:
+
+.. code-block:: yaml
+
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: webserver-service
+      namespace: webserver-ns
+    spec:
+      ports:
+        - protocol: TCP
+          port: 80
+          targetPort: 80
+
+6. Create an ingress to define a path and host for the webserver deployment:
+
+.. code-block:: yaml
+
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: webserver-ingress
+      namespace: webserver-ns
+    spec:
+      ingressClassName: nginx
+      rules:
+      - host: your-domain-or-public-ip
+        http:
+          paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: webserver-service
+                port:
+                  number: 80
+
+At this point, the webserver should be running on ``your-domain-or-public-ip``! ... without https though.
+
+Cert Manager (Bonus!)
+----------------------
+If you prefer to have https connections, you need a tls/ssl certificate on your ``your-domain-or-public-ip``.
+One of the nicest things in the world, is the `Cert Manager <https://cert-manager.io/>`_.
+All you have to do is to install the controller in your cluster and define certificates for your services.
+It would manage the certificates and the challenges without any worries.
+We follow these steps to certify our POC webserver:
+
+1. Create a namespace and a ClusterIssuer object:
+
+.. code-block:: yaml
+
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: cert-manager-ns
+    ---
+    apiVersion: cert-manager.io/v1
+    kind: ClusterIssuer
+    metadata:
+      namespace: cert-manager-ns
+      name: clusterIssuer
+    spec:
+      acme:
+        server: https://acme-v02.api.letsencrypt.org/directory
+        email: an-email-addree
+        privateKeySecretRef:
+          name: letsencrypt-beta
+        solvers:
+        - http01: # this is http challenge. I don't cover other challenges in this article.
+            ingress:
+              class: nginx
+
+2. Create a certificate for the webserver deployment:
+
+.. code-block:: yaml
+
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    metadata:
+      name: webserver-cert
+      namespace: webserver
+    spec:
+      secretName: webserver-cert-secret
+      issuerRef:
+        name: clusterIssuer
+        kind: ClusterIssuer
+      dnsNames:
+        - your-domain-or-public-ip
+
+3. Modify the webserver-ingress, add these values:
+
+.. code-block:: yaml
+
+    metadata:
+      annotations:
+        cert-manager.io/cluster-issuer: clusterIssuer
+
+    spec:
+      tls:
+      - hosts:
+        - your-domain-or-public-ip
+        secretName: webserver-cert
+
+Tada! after some seconds, you can access your webserver on ``your-domain-or-public-ip`` with https.
