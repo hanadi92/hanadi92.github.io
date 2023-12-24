@@ -22,8 +22,7 @@ LINKS = (('Pelican', 'https://getpelican.com/'),
          ('You can modify those links in your config file', '#'),)
 
 # Social widget
-SOCIAL = (('You can add links in your config file', '#'),
-          ('Another social link', '#'),)
+SOCIAL = (('<i class="fa fa-github" style="font-size:24px"></i>', 'https://github.com/hanadi92'),)
 
 DEFAULT_PAGINATION = 10
 
