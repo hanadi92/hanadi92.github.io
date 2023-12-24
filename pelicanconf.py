@@ -16,13 +16,10 @@ AUTHOR_FEED_ATOM = None
 AUTHOR_FEED_RSS = None
 
 # Blogroll
-LINKS = (('Pelican', 'https://getpelican.com/'),
-         ('Python.org', 'https://www.python.org/'),
-         ('Jinja2', 'https://palletsprojects.com/p/jinja/'),
-         ('You can modify those links in your config file', '#'),)
+LINKS = ()
 
 # Social widget
-SOCIAL = (('<i class="fa fa-github" style="font-size:24px"></i>', 'https://github.com/hanadi92'),)
+SOCIAL = (('@github', 'https://github.com/hanadi92'),)
 
 DEFAULT_PAGINATION = 10
 
