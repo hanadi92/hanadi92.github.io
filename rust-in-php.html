@@ -4,21 +4,27 @@
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="generator" content="Pelican" />
-        <title>Etch - Hanadi</title>
+        <title>Part 1: Rust in PHP</title>
         <link rel="stylesheet" href="/theme/css/main.css" />
+        <meta name="description" content="Part 1: How to use Rust for high load code in PHP!" />
 </head>
 
 <body id="index" class="home">
         <header id="banner" class="body">
                 <h1><a href="/">Etch</a></h1>
                 <nav><ul>
-                    <li><a href="/category/tech.html">tech</a></li>
+                    <li class="active"><a href="/category/tech.html">tech</a></li>
                 </ul></nav>
         </header><!-- /#banner -->
+<section id="content" class="body">
+  <article>
+    <header>
+      <h1 class="entry-title">
+        <a href="/rust-in-php.html" rel="bookmark"
+           title="Permalink to Part 1: Rust in PHP">Part 1: Rust in PHP</a></h1>
+    </header>
 
-            <aside id="featured" class="body">
-                <article>
-                    <h1 class="entry-title"><a href="/rust-in-php.html">Part 1: Rust in PHP</a></h1>
+    <div class="entry-content">
 <footer class="post-info">
         <abbr class="published" title="2024-02-17T19:03:00+01:00">
                 Published: Sat 17 February 2024
@@ -33,7 +39,7 @@
         </address>
 <p>In <a href="/category/tech.html">tech</a>.</p>
 <p>tags: <a href="/tag/rust.html">Rust</a> <a href="/tag/php.html">PHP</a> <a href="/tag/ffi.html">FFI</a> </p>
-</footer><!-- /.post-info --><p>Hypothesis: In PHP projects, executing high load code using Rust instead of PHP produces a higher performance.</p>
+</footer><!-- /.post-info -->      <p>Hypothesis: In PHP projects, executing high load code using Rust instead of PHP produces a higher performance.</p>
 <p>Use case: A simple idea, rather useless but just to prove a point, our project accepts a location (in Stockholm)
 and a time (%H:%M:%S) in order to fetch all the trains that would depart from the location in the entered time up to 10 minute.</p>
 <p>Strategy: Build two implementations of finding the trains that would depart from a given location after a given time within 10 minutes.
@@ -189,68 +195,11 @@ results with this <tt class="docutils literal">test <span class="pre">tests::ben
 <p>Our second implementation in PHP, which we will compare our rust performance results with. This will be continued in part 2!</p>
 <p>Part 2 will also include the results! Stay tuned.</p>
 </div>
-                </article>
-            </aside><!-- /#featured -->
-                <section id="content" class="body">
-                    <h1>Other articles</h1>
-                    <hr />
-                    <ol id="posts-list" class="hfeed">
 
-            <li><article class="hentry">
-                <header>
-                    <h1><a href="/webserver-on-oci.html" rel="bookmark"
-                           title="Permalink to Webserver on OCI for free">Webserver on OCI for free</a></h1>
-                </header>
+    </div><!-- /.entry-content -->
 
-                <div class="entry-content">
-<footer class="post-info">
-        <abbr class="published" title="2023-12-24T10:07:00+01:00">
-                Published: Sun 24 December 2023
-        </abbr>
-		<br />
-        <abbr class="modified" title="2023-12-24T10:07:00+01:00">
-                Updated: Sun 24 December 2023
-        </abbr>
-
-        <address class="vcard author">
-                By                         <a class="url fn" href="/author/hanadi.html">Hanadi</a>
-        </address>
-<p>In <a href="/category/tech.html">tech</a>.</p>
-<p>tags: <a href="/tag/oci.html">OCI</a> <a href="/tag/k3s.html">K3s</a> <a href="/tag/webserver.html">webserver</a> </p>
-</footer><!-- /.post-info -->                <p class="first last">Deploying a Webserver on K3s with OCI for free!</p>
-
-                <a class="readmore" href="/webserver-on-oci.html">read more</a>
-                </div><!-- /.entry-content -->
-            </article></li>
-
-            <li><article class="hentry">
-                <header>
-                    <h1><a href="/pelican-as-ssg.html" rel="bookmark"
-                           title="Permalink to My Github Page with Pelican SSG">My Github Page with Pelican SSG</a></h1>
-                </header>
-
-                <div class="entry-content">
-<footer class="post-info">
-        <abbr class="published" title="2023-03-27T02:26:00+02:00">
-                Published: Mon 27 March 2023
-        </abbr>
-		<br />
-        <abbr class="modified" title="2023-03-27T02:26:00+02:00">
-                Updated: Mon 27 March 2023
-        </abbr>
-
-        <address class="vcard author">
-                By                         <a class="url fn" href="/author/hanadi.html">Hanadi</a>
-        </address>
-<p>In <a href="/category/tech.html">tech</a>.</p>
-<p>tags: <a href="/tag/pelican.html">Pelican</a> <a href="/tag/ssg.html">SSG</a> <a href="/tag/githubpage.html">GithubPage</a> </p>
-</footer><!-- /.post-info -->                <p class="first last">Trying out Pelican SSG for my Github Page.</p>
-
-                <a class="readmore" href="/pelican-as-ssg.html">read more</a>
-                </div><!-- /.entry-content -->
-            </article></li>
-                </ol><!-- /#posts-list -->
-                </section><!-- /#content -->
+  </article>
+</section>
         <section id="extras" class="body">
                 <div class="social">
                         <h2>social</h2>

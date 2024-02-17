@@ -18,7 +18,191 @@
 
             <aside id="featured" class="body">
                 <article>
-                    <h1 class="entry-title"><a href="/webserver-on-oci.html">Webserver on OCI for free</a></h1>
+                    <h1 class="entry-title"><a href="/rust-in-php.html">Part 1: Rust in PHP</a></h1>
+<footer class="post-info">
+        <abbr class="published" title="2024-02-17T19:03:00+01:00">
+                Published: Sat 17 February 2024
+        </abbr>
+		<br />
+        <abbr class="modified" title="2024-02-17T19:03:00+01:00">
+                Updated: Sat 17 February 2024
+        </abbr>
+
+        <address class="vcard author">
+                By                         <a class="url fn" href="/author/hanadi.html">Hanadi</a>
+        </address>
+<p>In <a href="/category/tech.html">tech</a>.</p>
+<p>tags: <a href="/tag/rust.html">Rust</a> <a href="/tag/php.html">PHP</a> <a href="/tag/ffi.html">FFI</a> </p>
+</footer><!-- /.post-info --><p>Hypothesis: In PHP projects, executing high load code using Rust instead of PHP produces a higher performance.</p>
+<p>Use case: A simple idea, rather useless but just to prove a point, our project accepts a location (in Stockholm)
+and a time (%H:%M:%S) in order to fetch all the trains that would depart from the location in the entered time up to 10 minute.</p>
+<p>Strategy: Build two implementations of finding the trains that would depart from a given location after a given time within 10 minutes.
+One using pure PHP, benchmark and profile it. One using Rust in PHP, benchmark and profile it.</p>
+<div class="section" id="dataset">
+<h2>Dataset</h2>
+<p>The dataset consist of train timetable. It has 2566 records and was taken from [kaggle](<a class="reference external" href="https://www.kaggle.com/datasets/abdeaitali/commuter-train-timetable">https://www.kaggle.com/datasets/abdeaitali/commuter-train-timetable</a>).
+It was chosen because of its acceptable size. We should be able to point the performance difference of using this dataset in PHP and Rust.</p>
+<p>The dataset contains many information about each train, we only are concerned about the departure terminal and the departure time.</p>
+</div>
+<div class="section" id="rust">
+<h2>Rust</h2>
+<p>First we define what we would like to deserialize the records of the dataset into, we call it Train:</p>
+<div class="highlight"><pre><span></span><span class="cp">#[derive(Debug, Deserialize, Serialize)]</span>
+<span class="k">struct</span> <span class="nc">Train</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="cp">#[serde(rename = </span><span class="s">&quot;DepTime&quot;</span><span class="cp">)]</span>
+<span class="w">    </span><span class="n">dep_time</span>: <span class="nb">String</span><span class="p">,</span>
+<span class="w">    </span><span class="cp">#[serde(rename = </span><span class="s">&quot;DepTerminal&quot;</span><span class="cp">)]</span>
+<span class="w">    </span><span class="n">dep_terminal</span>: <span class="nb">String</span><span class="p">,</span>
+<span class="w">    </span><span class="c1">// many other fields</span>
+<span class="p">}</span>
+</pre></div>
+<p>Then we read the csv and deserialize the records into a vector of trains:</p>
+<div class="highlight"><pre><span></span><span class="kd">let</span><span class="w"> </span><span class="n">trains</span>: <span class="nb">Vec</span><span class="o">&lt;</span><span class="n">Train</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ReaderBuilder</span>::<span class="n">new</span><span class="p">()</span>
+<span class="w">    </span><span class="p">.</span><span class="n">delimiter</span><span class="p">(</span><span class="sc">b&#39;,&#39;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">.</span><span class="n">has_headers</span><span class="p">(</span><span class="kc">true</span><span class="p">)</span>
+<span class="w">    </span><span class="p">.</span><span class="n">flexible</span><span class="p">(</span><span class="kc">true</span><span class="p">)</span>
+<span class="w">    </span><span class="p">.</span><span class="n">from_path</span><span class="p">(</span><span class="s">&quot;mini_data.csv&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">.</span><span class="n">expect</span><span class="p">(</span><span class="s">&quot;Error reading CSV file&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">.</span><span class="n">deserialize</span><span class="p">()</span>
+<span class="w">    </span><span class="p">.</span><span class="n">filter_map</span><span class="p">(</span><span class="o">|</span><span class="n">result</span><span class="o">|</span><span class="w"> </span><span class="n">result</span><span class="p">.</span><span class="n">ok</span><span class="p">())</span>
+<span class="w">    </span><span class="p">.</span><span class="n">collect</span><span class="p">();</span>
+</pre></div>
+<p>We could then define two functions for the Train implementation, one to check the departing soon condition and one to check the departing from condition:</p>
+<div class="highlight"><pre><span></span><span class="k">fn</span> <span class="nf">is_departing_soon</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">current_time</span>: <span class="kp">&amp;</span><span class="nc">NaiveTime</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kt">bool</span> <span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">train_departure_time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">NaiveTime</span>::<span class="n">from_str</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">.</span><span class="n">dep_time</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">time_difference</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">train_departure_time</span><span class="p">.</span><span class="n">signed_duration_since</span><span class="p">(</span><span class="o">*</span><span class="n">current_time</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// Check if the train departure time is greater than the current time</span>
+<span class="w">    </span><span class="c1">// and the time difference is less than or equal to 10 minutes (600 seconds).</span>
+<span class="w">    </span><span class="n">train_departure_time</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="o">*</span><span class="n">current_time</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">time_difference</span><span class="p">.</span><span class="n">num_seconds</span><span class="p">()</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="mi">600</span>
+<span class="p">}</span>
+<span class="k">fn</span> <span class="nf">is_departing_from</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">current_place</span>: <span class="kp">&amp;</span><span class="nb">String</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kt">bool</span> <span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">train_departure_place</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="bp">self</span><span class="p">.</span><span class="n">dep_terminal</span><span class="p">;</span>
+<span class="w">    </span><span class="n">train_departure_place</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">current_place</span>
+<span class="p">}</span>
+</pre></div>
+<p>At that point we could simply filter the vector of trains with the conditions:</p>
+<div class="highlight"><pre><span></span><span class="c1">// Filter departing trains based on time</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">departing_trains</span>: <span class="nb">Vec</span><span class="o">&lt;&amp;</span><span class="n">Train</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">trains</span>
+<span class="w">    </span><span class="p">.</span><span class="n">iter</span><span class="p">()</span>
+<span class="w">    </span><span class="p">.</span><span class="n">filter</span><span class="p">(</span><span class="o">|</span><span class="n">train</span><span class="o">|</span><span class="w"> </span><span class="n">train</span><span class="p">.</span><span class="n">is_departing_soon</span><span class="p">(</span><span class="o">&amp;</span><span class="n">current_time</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">train</span><span class="p">.</span><span class="n">is_departing_from</span><span class="p">(</span><span class="o">&amp;</span><span class="n">current_place_str</span><span class="p">))</span>
+<span class="w">    </span><span class="p">.</span><span class="n">collect</span><span class="p">();</span>
+</pre></div>
+</div>
+<div class="section" id="ffi-or-no-ffi">
+<h2>FFI or no FFI</h2>
+<p>After some research, I decided to measure this by myself. Some experiments said that using FFI produces less performance that no-ffi.
+But we will try this together!</p>
+</div>
+<div class="section" id="ffi-rust-side">
+<h2>FFI Rust Side</h2>
+<p>In order to compile the rust code into <tt class="docutils literal">.dll</tt> or <tt class="docutils literal">.dylib</tt> or whatever depending on the compiling machine, let's wrap the code with a function
+that accepts the current time and current location to be called from C.</p>
+<div class="highlight"><pre><span></span><span class="cp">#[no_mangle]</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">extern</span><span class="w"> </span><span class="s">&quot;C&quot;</span><span class="w"> </span><span class="k">fn</span> <span class="nf">find_departing_trains</span><span class="p">(</span>
+<span class="w">    </span><span class="n">current_time</span>: <span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">libc</span>::<span class="n">c_char</span><span class="p">,</span>
+<span class="w">    </span><span class="n">current_terminal</span>: <span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">libc</span>::<span class="n">c_char</span><span class="p">,</span>
+<span class="p">)</span><span class="w"> </span>-&gt; <span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">libc</span>::<span class="n">c_char</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">current_time_str</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">CStr</span>::<span class="n">from_ptr</span><span class="p">(</span><span class="n">current_time</span><span class="p">).</span><span class="n">to_string_lossy</span><span class="p">().</span><span class="n">into_owned</span><span class="p">()</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">current_place_str</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">CStr</span>::<span class="n">from_ptr</span><span class="p">(</span><span class="n">current_terminal</span><span class="p">).</span><span class="n">to_string_lossy</span><span class="p">().</span><span class="n">into_owned</span><span class="p">()</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="c1">// Parse the current_time string into a NaiveTime</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">current_time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">NaiveTime</span>::<span class="n">from_str</span><span class="p">(</span><span class="o">&amp;</span><span class="n">current_time_str</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+
+<span class="w">    </span><span class="c1">// ... code from above</span>
+
+<span class="w">    </span><span class="c1">// Convert departing_trains to a JSON string or any other suitable format</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">serde_json</span>::<span class="n">to_string</span><span class="p">(</span><span class="o">&amp;</span><span class="n">departing_trains</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">    </span><span class="c1">// Allocate a CString with the result string</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">result_cstring</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="n">result</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">    </span><span class="c1">// Transfer ownership to the caller and obtain a raw pointer</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">result_ptr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">result_cstring</span><span class="p">.</span><span class="n">into_raw</span><span class="p">();</span>
+<span class="w">    </span><span class="c1">// Convert the raw pointer to a mutable pointer</span>
+<span class="w">    </span><span class="n">result_ptr</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">libc</span>::<span class="n">c_char</span>
+</pre></div>
+<p>We also need to free the memory allocated by rust:</p>
+<div class="highlight"><pre><span></span><span class="c1">// Add a function to free the memory allocated by Rust</span>
+<span class="cp">#[no_mangle]</span>
+<span class="k">pub</span><span class="w"> </span><span class="k">extern</span><span class="w"> </span><span class="s">&quot;C&quot;</span><span class="w"> </span><span class="k">fn</span> <span class="nf">free_rust_string</span><span class="p">(</span><span class="n">ptr</span>: <span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">libc</span>::<span class="n">c_char</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Convert the pointer back to a CString, and then drop it to free the memory</span>
+<span class="w">    </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CString</span>::<span class="n">from_raw</span><span class="p">(</span><span class="n">ptr</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+<p>Now we are done with rust and can build a release. Run the following command:</p>
+<div class="highlight"><pre><span></span>cargo<span class="w"> </span>build<span class="w"> </span>--release
+</pre></div>
+<p>This would build the library under <tt class="docutils literal">target/release/something.dylib</tt> or dll or something.</p>
+<p>Bonus! Using rust bench we can see how much time it takes the find_departing_trains function to return. Running the following bench with <tt class="docutils literal">cargo bench</tt>
+results with this <tt class="docutils literal">test <span class="pre">tests::bench_workload</span> ... bench:&nbsp;&nbsp; 1,914,349 ns/iter <span class="pre">(+/-</span> 113,685)</tt></p>
+<div class="highlight"><pre><span></span><span class="cp">#[cfg(test)]</span>
+<span class="k">mod</span> <span class="nn">tests</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="cp">#![feature(test)]</span>
+<span class="w">    </span><span class="k">extern</span><span class="w"> </span><span class="k">crate</span><span class="w"> </span><span class="n">test</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">use</span><span class="w"> </span><span class="n">std</span>::<span class="n">ffi</span>::<span class="p">{</span><span class="n">c_char</span><span class="p">,</span><span class="w"> </span><span class="n">CString</span><span class="p">};</span>
+<span class="w">    </span><span class="k">use</span><span class="w"> </span><span class="n">test</span>::<span class="n">Bencher</span><span class="p">;</span>
+<span class="w">    </span><span class="k">use</span><span class="w"> </span><span class="n">mytrain</span>::<span class="n">find_departing_trains</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cp">#[bench]</span>
+<span class="w">    </span><span class="k">fn</span> <span class="nf">bench_workload</span><span class="p">(</span><span class="n">b</span>: <span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Bencher</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">c_time_str</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&quot;14:54:20&quot;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">c_time</span>: <span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">c_char</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">c_time_str</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">c_char</span><span class="p">;</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">c_place_str</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&quot;Tokoyo&quot;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">c_place</span>: <span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">c_char</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">c_place_str</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">c_char</span><span class="p">;</span>
+
+<span class="w">        </span><span class="n">b</span><span class="p">.</span><span class="n">iter</span><span class="p">(</span><span class="o">||</span><span class="w"> </span><span class="n">find_departing_trains</span><span class="p">(</span><span class="n">c_time</span><span class="p">,</span><span class="w"> </span><span class="n">c_place</span><span class="p">));</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="section" id="ffi-php-side">
+<h2>FFI PHP Side</h2>
+<p>Ok. In PHP we have to make sure we have the FFI extension enabled.</p>
+<div class="highlight"><pre><span></span><span class="cp">&lt;?php</span>
+<span class="nb">extension_loaded</span><span class="p">(</span><span class="s1">&#39;ffi&#39;</span><span class="p">)</span> <span class="k">or</span> <span class="k">die</span><span class="p">(</span><span class="s1">&#39;FFI extension is not enabled.&#39;</span><span class="p">);</span>
+</pre></div>
+<p>Then we load the functions from the built rust lib with FFI and call the <tt class="docutils literal">find_departing_trains</tt> function:</p>
+<div class="highlight"><pre><span></span><span class="x">// Load the Rust library</span>
+<span class="x">$ffi = FFI::cdef(&quot;</span>
+<span class="x">    char* find_departing_trains(char* current_time, char* current_terminal);</span>
+<span class="x">    void free_rust_string(char* ptr);</span>
+<span class="x">&quot;, __DIR__ . &quot;/target/release/libmytrain.dylib&quot;);</span>
+<span class="x">$result = $ffi-&gt;find_departing_trains(&quot;14:54:20&quot;, &quot;Kungsängen&quot;);</span>
+
+<span class="x">// Convert the result to a PHP string</span>
+<span class="x">$resultStr = FFI::string($result);</span>
+<span class="x">// Free the memory allocated by Rust</span>
+<span class="x">$ffi-&gt;free_rust_string($result);</span>
+<span class="x">// Deserialize the JSON string into a PHP array</span>
+<span class="x">$departingTrains = json_decode($resultStr, true);</span>
+<span class="x">print_r($departingTrains);</span>
+</pre></div>
+<p>Using something as simple as microtime for timing find_departing_trains results with 0.0029921531677246 seconds.</p>
+</div>
+<div class="section" id="php-ext-rs-instead-of-ffi">
+<h2>php-ext-rs (instead of FFI)</h2>
+<p>Instead of using FFI, we could also build a PHP extension in Rust. This will be continued in part 2!</p>
+</div>
+<div class="section" id="pure-php-impl">
+<h2>Pure PHP Impl.</h2>
+<p>Our second implementation in PHP, which we will compare our rust performance results with. This will be continued in part 2!</p>
+<p>Part 2 will also include the results! Stay tuned.</p>
+</div>
+                </article>
+            </aside><!-- /#featured -->
+                <section id="content" class="body">
+                    <h1>Other articles</h1>
+                    <hr />
+                    <ol id="posts-list" class="hfeed">
+
+            <li><article class="hentry">
+                <header>
+                    <h1><a href="/webserver-on-oci.html" rel="bookmark"
+                           title="Permalink to Webserver on OCI for free">Webserver on OCI for free</a></h1>
+                </header>
+
+                <div class="entry-content">
 <footer class="post-info">
         <abbr class="published" title="2023-12-24T10:07:00+01:00">
                 Published: Sun 24 December 2023
@@ -33,309 +217,11 @@
         </address>
 <p>In <a href="/category/tech.html">tech</a>.</p>
 <p>tags: <a href="/tag/oci.html">OCI</a> <a href="/tag/k3s.html">K3s</a> <a href="/tag/webserver.html">webserver</a> </p>
-</footer><!-- /.post-info --><p>I recently found out that OCI (Oracle Cloud Infrastructure) offers forever-free instances. So I thought, why not try to
-deploy a webserver on those.</p>
-<div class="section" id="oci-setup">
-<h2>OCI Setup</h2>
-<p>After signing up on <a class="reference external" href="https://www.oracle.com/cloud/">OCI</a>, it is pretty much intuitive to create a forever-free instance.
-You can choose the placement, the used image, the shape of it, and get the ssh keys to connect later (IMPORTANT!).
-It takes some seconds before the instance is up and running.</p>
-<p>P.S. I chose an <tt class="docutils literal">arm</tt> based instance, since K3s requires that architecture.</p>
-</div>
-<div class="section" id="domain-optional">
-<h2>Domain (Optional)</h2>
-<p>At this point, OCI sets and provides a public IP for the instance. You may register a new domain and assign it to the public IP.</p>
-</div>
-<div class="section" id="k3s">
-<h2>K3s</h2>
-<p>I chose K3s because it needs and consumes less resources as other distributions (K8s, minikube, MikroK8s). It has an easy installation guide,
-but here are some of my &quot;I wish I knew before...&quot;.</p>
-<p>I always prefer to use the kubeconfig to access my cluster locally with LensIDE. Therefore, when I used the basic installation command to install k3s,
-the kubeconfig certificate was not valid for the public IP of the instance, rather only for the local network IP.
-The fix here was to add the parameter <tt class="docutils literal"><span class="pre">--tls-san</span> <span class="pre">public-ip</span></tt> in the <tt class="docutils literal">INSTALL_K3S_EXEC</tt> variable.</p>
-<p>It would look something like this:</p>
-<div class="highlight"><pre><span></span>curl<span class="w"> </span>-sfL<span class="w"> </span>https://get.k3s.io<span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="nv">INSTALL_K3S_EXEC</span><span class="o">=</span><span class="s2">&quot;--tls-san instance-public-ip --disable traefik&quot;</span><span class="w"> </span>sh<span class="w"> </span>-
-</pre></div>
-<dl class="docutils">
-<dt>notes:</dt>
-<dd>I am more comfortable with ingress NGINX and use it as LoadBalancer. So I just disabled traefik.
-K3s dumps the kubeconfig under /etc/rancher/k3s/k3s.yaml
-K3s installs helm in the cluster by default</dd>
-</dl>
-</div>
-<div class="section" id="fluxcd-optional">
-<h2>FluxCD (Optional)</h2>
-<p><a class="reference external" href="https://fluxcd.io/">FluxCD</a> is definitely optional, but trust me you want it!
-The most valuable feature is that you would push changes into git and it would just deploy it to your cluster (sync cluster state to git state).
-Since K3s installs Helm by default on the cluster, you can install Flux on the instance machine:</p>
-<div class="highlight"><pre><span></span>curl<span class="w"> </span>-s<span class="w"> </span>https://fluxcd.io/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>bash
-</pre></div>
-<p>then use helm or flux to install it on the cluster.
-You would definitely need to give Flux access to your git repository (e.g. Github) aka <a class="reference external" href="https://fluxcd.io/flux/cmd/flux_bootstrap_github/">bootstrap</a>.
-Prepare a Personal Access Token for it through your Github account, and give it permission to push into the repo.</p>
-<p>It would look something like this (e.g. the git repo is personal and private on Github):</p>
-<div class="highlight"><pre><span></span>flux<span class="w"> </span>bootstrap<span class="w"> </span>github<span class="w"> </span>--owner<span class="o">=</span>&lt;user&gt;<span class="w"> </span>--repository<span class="o">=</span>&lt;repository<span class="w"> </span>name&gt;<span class="w"> </span>--private<span class="o">=</span><span class="nb">false</span><span class="w"> </span>--personal<span class="o">=</span><span class="nb">true</span><span class="w"> </span>--path<span class="o">=</span>clusters/my-cluster
-</pre></div>
-<p>The CLI will then ask for the access token. That command would push into the repo under that specified path some kustomization yaml to do its magic.</p>
-</div>
-<div class="section" id="ingress-nginx">
-<h2>Ingress NGINX</h2>
-<p>In case you disabled Traefik as I did, you would need an ingress controller and probably a load-balancer service. So my choice is ingress NGINX.
-Since we have helm on the K3s, we could simply install ingress NGINX with helm:</p>
-<div class="highlight"><pre><span></span>sudo<span class="w"> </span>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>ingress-nginx<span class="w"> </span>ingress-nginx<span class="w"> </span>--repo<span class="w"> </span>https://kubernetes.github.io/ingress-nginx<span class="w"> </span>--namespace<span class="w"> </span>ingress-nginx<span class="w"> </span>--create-namespace<span class="w"> </span>--kubeconfig<span class="o">=</span>/etc/rancher/k3s/k3s.yaml
-</pre></div>
-<p>Now we can define a load-balancer service something like this:</p>
-<div class="highlight"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
-<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
-<span class="nt">metadata</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ingress-nginx-controller</span>
-<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ingress-nginx</span>
-<span class="nt">spec</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
-<span class="w">  </span><span class="nt">externalIPs</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">instance-public-ip</span>
-<span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span>
-<span class="w">      </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-<span class="w">      </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https</span>
-<span class="w">      </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">443</span>
-<span class="w">      </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">443</span>
-<span class="w">  </span><span class="nt">selector</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">app.kubernetes.io/component</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">controller</span>
-<span class="w">    </span><span class="nt">app.kubernetes.io/instance</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ingress-nginx</span>
-</pre></div>
-<p>If you have FluxCD, pushing this into the repo it would deploy the load-balancer service. Otherwise, use this command:</p>
-<div class="highlight"><pre><span></span>sudo<span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>the-load-balancer-service-file.yaml
-</pre></div>
-</div>
-<div class="section" id="webserver-application">
-<h2>Webserver (Application)</h2>
-<p>As a proof of concept, I chose to set up a template webserver using Vite - VueJS.
-This webserver has a dockerfile that is built and pushed into the github image registry (package) of the repo.
-The image is then pulled from a deployment in the K3s cluster.</p>
-<p>I assume you have nodejs (includes npm) on your (local) machine. The following creates a template Vue app.</p>
-<div class="highlight"><pre><span></span>npm<span class="w"> </span>install<span class="w"> </span>create-vite
-npm<span class="w"> </span>create<span class="w"> </span>vite@latest<span class="w"> </span>my-vue-app<span class="w"> </span>--<span class="w"> </span>--template<span class="w"> </span>vue
-<span class="nb">cd</span><span class="w"> </span>my-vue-app
-npm<span class="w"> </span>install
-npm<span class="w"> </span>run<span class="w"> </span>serve
-<span class="c1"># use browser to go wherever the cli tells you to</span>
-</pre></div>
-<p>Now we dockerize the building the Vue app using node image and serving it using an nginx image:</p>
-<div class="highlight"><pre><span></span><span class="k">FROM</span><span class="w"> </span><span class="s">node:lts-alpine</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="s">build-stage</span>
-<span class="k">WORKDIR</span><span class="w"> </span><span class="s">/app</span>
-<span class="k">COPY</span><span class="w"> </span>package*.json<span class="w"> </span>./
-<span class="k">RUN</span><span class="w"> </span>npm<span class="w"> </span>install
-<span class="k">COPY</span><span class="w"> </span>.<span class="w"> </span>.
-<span class="k">RUN</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>build
+</footer><!-- /.post-info -->                <p class="first last">Deploying a Webserver on K3s with OCI for free!</p>
 
-<span class="c"># production stage</span>
-<span class="k">FROM</span><span class="w"> </span><span class="s">nginx:stable-alpine</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="s">production-stage</span>
-<span class="k">COPY</span><span class="w"> </span>--from<span class="o">=</span>build-stage<span class="w"> </span>/app/dist<span class="w"> </span>/usr/share/nginx/html
-<span class="k">EXPOSE</span><span class="w"> </span><span class="s">80</span>
-<span class="k">CMD</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;nginx&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;-g&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;daemon off;&quot;</span><span class="p">]</span>
-</pre></div>
-</div>
-<div class="section" id="github-actions">
-<h2>Github Actions</h2>
-<p>In order to build that Dockerfile image and push into Github to pull it later from the cluster, we need the following github action workflow:</p>
-<p>note that the actions have to have permission to access the repository from <tt class="docutils literal"><span class="pre">repo-&gt;settings-&gt;actions-&gt;access</span></tt></p>
-<div class="highlight"><pre><span></span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Build and Push Image</span>
-<span class="nt">on</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">workflow_dispatch</span><span class="p">:</span><span class="w"> </span><span class="c1"># to manually trigger it</span>
-<span class="nt">jobs</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">build-and-push</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">runs-on</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ubuntu-latest</span>
-<span class="w">    </span><span class="nt">permissions</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">contents</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">read</span>
-<span class="w">      </span><span class="nt">packages</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">write</span>
-<span class="w">    </span><span class="nt">steps</span><span class="p">:</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Checkout code</span>
-<span class="w">        </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/checkout@v3</span>
-
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Set up Docker Buildx</span>
-<span class="w">        </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docker/setup-buildx-action@v2</span>
-<span class="w">        </span><span class="nt">with</span><span class="p">:</span>
-<span class="w">          </span><span class="nt">platforms</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">linux/arm64</span><span class="w">  </span><span class="c1"># IMPORTANT IF YOU CHOOSE ARM INSTANCE IN OCI</span>
-
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Log in to GitHub container registry</span>
-<span class="w">        </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docker/login-action@v1.10.0</span>
-<span class="w">        </span><span class="nt">with</span><span class="p">:</span>
-<span class="w">          </span><span class="nt">registry</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io</span>
-<span class="w">          </span><span class="nt">username</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${{ github.actor }}</span>
-<span class="w">          </span><span class="nt">password</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${{ github.token }}</span>
-
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Build and push container image to registry</span>
-<span class="w">        </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docker/build-push-action@v2</span>
-<span class="w">        </span><span class="nt">with</span><span class="p">:</span>
-<span class="w">          </span><span class="nt">push</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">          </span><span class="nt">context</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">...path-to-the-vue-app</span>
-<span class="w">          </span><span class="nt">tags</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/webserver:${{ github.sha }}</span>
-<span class="w">          </span><span class="nt">file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">...path-to-the-dockerfile</span>
-<span class="w">          </span><span class="nt">platforms</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">linux/arm64</span><span class="w">  </span><span class="c1"># IMPORTANT IF YOU CHOOSE ARM INSTANCE IN OCI</span>
-</pre></div>
-<p>When this workflow succeeds, it would create the docker image as a package under the repo packages.</p>
-</div>
-<div class="section" id="webserver-deployment-secret">
-<h2>Webserver (Deployment &amp; Secret)</h2>
-<p>Now we need to pull the docker image from the cluster. We need a deployment that points to the image that the workflow built <tt class="docutils literal"><span class="pre">ghcr.io/webserver:${{</span> github.sha }}</tt>.
-However, since this image is in a private registry we need a secret that includes the base46 of a github access token (that you need to generate) to be able to pull it. So in this article I will provide the secret structure, but it is more secure
-to use sealed-secrets (using <tt class="docutils literal">kubeseal</tt>) instead of normal secrets objects.
-So these are the needed steps:</p>
-<ol class="arabic simple">
-<li>Generate an access token that has <tt class="docutils literal">packages:read</tt> permission</li>
-<li>Use this command to decode it with base64:</li>
-</ol>
-<div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span>-n<span class="w"> </span><span class="s2">&quot;your-github-username:github-access-token&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>base64
-<span class="nb">echo</span><span class="w"> </span>-n<span class="w"> </span><span class="s1">&#39;{&quot;auths&quot;:{&quot;ghcr.io&quot;:{&quot;auth&quot;:&quot;the-value-from-the-previous-command&quot;}}}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>base64
-</pre></div>
-<ol class="arabic simple" start="3">
-<li>Add the value to this secret object:</li>
-</ol>
-<div class="highlight"><pre><span></span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Secret</span>
-<span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kubernetes.io/dockerconfigjson</span>
-<span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
-<span class="nt">metadata</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">github-secret</span>
-<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webserver-ns</span>
-<span class="w">  </span><span class="nt">labels</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">app-name</span>
-<span class="nt">data</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">.dockerconfigjson</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">the-value-from-last-command</span>
-</pre></div>
-<ol class="arabic simple" start="4">
-<li>If you have FluxCD, pushing this into the repo would deploy the load-balancer service. Otherwise, use this command:</li>
-</ol>
-<div class="highlight"><pre><span></span>sudo<span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>the-secret-file.yaml
-</pre></div>
-<ol class="arabic simple" start="4">
-<li>Create the deployment to pull the image for the webserver:</li>
-</ol>
-<div class="highlight"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apps/v1</span>
-<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Deployment</span>
-<span class="nt">metadata</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webserver-deployment</span>
-<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webserver-ns</span>
-<span class="nt">spec</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">replicas</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
-<span class="w">  </span><span class="nt">template</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">spec</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">containers</span><span class="p">:</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webserver</span>
-<span class="w">        </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/webserver:${{ github.sha }}</span><span class="w"> </span><span class="c1"># name of the image that you get under packages (copy the arm one)</span>
-<span class="w">        </span><span class="nt">ports</span><span class="p">:</span>
-<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">containerPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-<span class="w">            </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TCP</span>
-<span class="w">      </span><span class="nt">imagePullSecrets</span><span class="p">:</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">github-secret</span>
-</pre></div>
-<ol class="arabic simple" start="5">
-<li>Create a service to expose an IP and port for the webserver deployment:</li>
-</ol>
-<div class="highlight"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
-<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
-<span class="nt">metadata</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webserver-service</span>
-<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webserver-ns</span>
-<span class="nt">spec</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TCP</span>
-<span class="w">      </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-<span class="w">      </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-</pre></div>
-<ol class="arabic simple" start="6">
-<li>Create an ingress to define a path and host for the webserver deployment:</li>
-</ol>
-<div class="highlight"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
-<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Ingress</span>
-<span class="nt">metadata</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webserver-ingress</span>
-<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webserver-ns</span>
-<span class="nt">spec</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">ingressClassName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nginx</span>
-<span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your-domain-or-public-ip</span>
-<span class="w">    </span><span class="nt">http</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">paths</span><span class="p">:</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/</span>
-<span class="w">        </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Prefix</span>
-<span class="w">        </span><span class="nt">backend</span><span class="p">:</span>
-<span class="w">          </span><span class="nt">service</span><span class="p">:</span>
-<span class="w">            </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webserver-service</span>
-<span class="w">            </span><span class="nt">port</span><span class="p">:</span>
-<span class="w">              </span><span class="nt">number</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-</pre></div>
-<p>At this point, the webserver should be running on <tt class="docutils literal"><span class="pre">your-domain-or-public-ip</span></tt>! ... without https though.</p>
-</div>
-<div class="section" id="cert-manager-bonus">
-<h2>Cert Manager (Bonus!)</h2>
-<p>If you prefer to have https connections, you need a tls/ssl certificate on your <tt class="docutils literal"><span class="pre">your-domain-or-public-ip</span></tt>.
-One of the nicest things in the world, is the <a class="reference external" href="https://cert-manager.io/">Cert Manager</a>.
-All you have to do is to install the controller in your cluster and define certificates for your services.
-It would manage the certificates and the challenges without any worries.
-We follow these steps to certify our POC webserver:</p>
-<ol class="arabic simple">
-<li>Create a namespace and a ClusterIssuer object:</li>
-</ol>
-<div class="highlight"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
-<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Namespace</span>
-<span class="nt">metadata</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cert-manager-ns</span>
-<span class="nn">---</span>
-<span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cert-manager.io/v1</span>
-<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterIssuer</span>
-<span class="nt">metadata</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cert-manager-ns</span>
-<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">clusterIssuer</span>
-<span class="nt">spec</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">acme</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">server</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://acme-v02.api.letsencrypt.org/directory</span>
-<span class="w">    </span><span class="nt">email</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">an-email-addree</span>
-<span class="w">    </span><span class="nt">privateKeySecretRef</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">letsencrypt-beta</span>
-<span class="w">    </span><span class="nt">solvers</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">http01</span><span class="p">:</span><span class="w"> </span><span class="c1"># this is http challenge. I don&#39;t cover other challenges in this article.</span>
-<span class="w">        </span><span class="nt">ingress</span><span class="p">:</span>
-<span class="w">          </span><span class="nt">class</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nginx</span>
-</pre></div>
-<ol class="arabic simple" start="2">
-<li>Create a certificate for the webserver deployment:</li>
-</ol>
-<div class="highlight"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cert-manager.io/v1</span>
-<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Certificate</span>
-<span class="nt">metadata</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webserver-cert</span>
-<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webserver</span>
-<span class="nt">spec</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">secretName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webserver-cert-secret</span>
-<span class="w">  </span><span class="nt">issuerRef</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">clusterIssuer</span>
-<span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterIssuer</span>
-<span class="w">  </span><span class="nt">dnsNames</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your-domain-or-public-ip</span>
-</pre></div>
-<ol class="arabic simple" start="3">
-<li>Modify the webserver-ingress, add these values:</li>
-</ol>
-<div class="highlight"><pre><span></span><span class="nt">metadata</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">cert-manager.io/cluster-issuer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">clusterIssuer</span>
-
-<span class="nt">spec</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">tls</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">hosts</span><span class="p">:</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your-domain-or-public-ip</span>
-<span class="w">    </span><span class="nt">secretName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webserver-cert</span>
-</pre></div>
-<p>Tada! after some seconds, you can access your webserver on <tt class="docutils literal"><span class="pre">your-domain-or-public-ip</span></tt> with https.</p>
-</div>
-                </article>
-            </aside><!-- /#featured -->
-                <section id="content" class="body">
-                    <h1>Other articles</h1>
-                    <hr />
-                    <ol id="posts-list" class="hfeed">
+                <a class="readmore" href="/webserver-on-oci.html">read more</a>
+                </div><!-- /.entry-content -->
+            </article></li>
 
             <li><article class="hentry">
                 <header>
