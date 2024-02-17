@@ -38,9 +38,10 @@
 and a time (%H:%M:%S) in order to fetch all the trains that would depart from the location in the entered time up to 10 minute.</p>
 <p>Strategy: Build two implementations of finding the trains that would depart from a given location after a given time within 10 minutes.
 One using pure PHP, one using Rust in PHP. Compare performance of both implementations and decide the results of the hypothesis.</p>
+<p>The complete code is here: <a class="reference external" href="https://github.com/hanadi92/rust-in-php">Github repo</a>.</p>
 <div class="section" id="dataset">
 <h2>Dataset</h2>
-<p>The dataset consist of train timetable. It has 2566 records and was taken from [kaggle](<a class="reference external" href="https://www.kaggle.com/datasets/abdeaitali/commuter-train-timetable">https://www.kaggle.com/datasets/abdeaitali/commuter-train-timetable</a>).
+<p>The dataset consist of train timetable. It has 2566 records and was taken from <a class="reference external" href="https://www.kaggle.com/datasets/abdeaitali/commuter-train-timetable">kaggle</a>.
 It was chosen because of its acceptable size. We should be able to point the performance difference of using this dataset in PHP and Rust.</p>
 <p>The dataset contains many information about each train, we only are concerned about the departure terminal and the departure time.</p>
 </div>
