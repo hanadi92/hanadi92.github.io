@@ -33,11 +33,11 @@
         </address>
 <p>In <a href="/category/tech.html">tech</a>.</p>
 <p>tags: <a href="/tag/rust.html">Rust</a> <a href="/tag/php.html">PHP</a> <a href="/tag/ffi.html">FFI</a> </p>
-</footer><!-- /.post-info --><p>Hypothesis: In PHP projects, executing high load code using Rust instead of PHP produces a higher performance.</p>
-<p>Use case: A simple idea, rather useless but just to prove a point, our project accepts a location (in Stockholm)
+</footer><!-- /.post-info --><p>Hypothesis: In PHP projects, executing high load code using Rust instead of PHP results in higher performance.</p>
+<p>Use case: A simple idea, rather useless but to prove a point, our project accepts a location (in Stockholm)
 and a time (%H:%M:%S) in order to fetch all the trains that would depart from the location in the entered time up to 10 minute.</p>
 <p>Strategy: Build two implementations of finding the trains that would depart from a given location after a given time within 10 minutes.
-One using pure PHP, benchmark and profile it. One using Rust in PHP, benchmark and profile it.</p>
+One using pure PHP, one using Rust in PHP. Compare performance of both implementations and decide the results of the hypothesis.</p>
 <div class="section" id="dataset">
 <h2>Dataset</h2>
 <p>The dataset consist of train timetable. It has 2566 records and was taken from [kaggle](<a class="reference external" href="https://www.kaggle.com/datasets/abdeaitali/commuter-train-timetable">https://www.kaggle.com/datasets/abdeaitali/commuter-train-timetable</a>).
