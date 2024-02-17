@@ -169,20 +169,21 @@ results with this <tt class="docutils literal">test <span class="pre">tests::ben
 <span class="nb">extension_loaded</span><span class="p">(</span><span class="s1">&#39;ffi&#39;</span><span class="p">)</span> <span class="k">or</span> <span class="k">die</span><span class="p">(</span><span class="s1">&#39;FFI extension is not enabled.&#39;</span><span class="p">);</span>
 </pre></div>
 <p>Then we load the functions from the built rust lib with FFI and call the <tt class="docutils literal">find_departing_trains</tt> function:</p>
-<div class="highlight"><pre><span></span><span class="x">// Load the Rust library</span>
-<span class="x">$ffi = FFI::cdef(&quot;</span>
-<span class="x">    char* find_departing_trains(char* current_time, char* current_terminal);</span>
-<span class="x">    void free_rust_string(char* ptr);</span>
-<span class="x">&quot;, __DIR__ . &quot;/target/release/libmytrain.dylib&quot;);</span>
-<span class="x">$result = $ffi-&gt;find_departing_trains(&quot;14:54:20&quot;, &quot;Kungsängen&quot;);</span>
+<div class="highlight"><pre><span></span><span class="cp">&lt;?php</span>
+<span class="c1">// Load the Rust library</span>
+<span class="nv">$ffi</span> <span class="o">=</span> <span class="nx">FFI</span><span class="o">::</span><span class="na">cdef</span><span class="p">(</span><span class="s2">&quot;</span>
+<span class="s2">    char* find_departing_trains(char* current_time, char* current_terminal);</span>
+<span class="s2">    void free_rust_string(char* ptr);</span>
+<span class="s2">&quot;</span><span class="p">,</span> <span class="no">__DIR__</span> <span class="o">.</span> <span class="s2">&quot;/target/release/libmytrain.dylib&quot;</span><span class="p">);</span>
+<span class="nv">$result</span> <span class="o">=</span> <span class="nv">$ffi</span><span class="o">-&gt;</span><span class="na">find_departing_trains</span><span class="p">(</span><span class="s2">&quot;14:54:20&quot;</span><span class="p">,</span> <span class="s2">&quot;Kungsängen&quot;</span><span class="p">);</span>
 
-<span class="x">// Convert the result to a PHP string</span>
-<span class="x">$resultStr = FFI::string($result);</span>
-<span class="x">// Free the memory allocated by Rust</span>
-<span class="x">$ffi-&gt;free_rust_string($result);</span>
-<span class="x">// Deserialize the JSON string into a PHP array</span>
-<span class="x">$departingTrains = json_decode($resultStr, true);</span>
-<span class="x">print_r($departingTrains);</span>
+<span class="c1">// Convert the result to a PHP string</span>
+<span class="nv">$resultStr</span> <span class="o">=</span> <span class="nx">FFI</span><span class="o">::</span><span class="na">string</span><span class="p">(</span><span class="nv">$result</span><span class="p">);</span>
+<span class="c1">// Free the memory allocated by Rust</span>
+<span class="nv">$ffi</span><span class="o">-&gt;</span><span class="na">free_rust_string</span><span class="p">(</span><span class="nv">$result</span><span class="p">);</span>
+<span class="c1">// Deserialize the JSON string into a PHP array</span>
+<span class="nv">$departingTrains</span> <span class="o">=</span> <span class="nb">json_decode</span><span class="p">(</span><span class="nv">$resultStr</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$departingTrains</span><span class="p">);</span>
 </pre></div>
 <p>Using something as simple as microtime for timing find_departing_trains results with 0.0029921531677246 seconds.</p>
 </div>
