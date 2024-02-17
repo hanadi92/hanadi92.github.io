@@ -179,6 +179,66 @@ results with this <tt class="docutils literal">test <span class="pre">tests::ben
 <span class="nv">$departingTrains</span> <span class="o">=</span> <span class="nb">json_decode</span><span class="p">(</span><span class="nv">$resultStr</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
 <span class="nb">print_r</span><span class="p">(</span><span class="nv">$departingTrains</span><span class="p">);</span>
 </pre></div>
+<p>Oh, the results would look like this. after running the php file using <tt class="docutils literal">php main.php</tt>:</p>
+<div class="highlight"><pre><span></span><span class="o">(</span>
+<span class="o">[</span><span class="m">0</span><span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span>Array
+<span class="w">    </span><span class="o">(</span>
+<span class="w">        </span><span class="o">[</span>Day<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">20121210</span>
+<span class="w">        </span><span class="o">[</span>ObsID<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">1</span>.5684401000022E+25
+<span class="w">        </span><span class="o">[</span>DepTime<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">15</span>:02:09
+<span class="w">        </span><span class="o">[</span>ArrTime<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">15</span>:01:14
+<span class="w">        </span><span class="o">[</span>DwellTime<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">0</span>
+<span class="w">        </span><span class="o">[</span>StopTime<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">55</span>
+<span class="w">        </span><span class="o">[</span>Boarding<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">4</span>
+<span class="w">        </span><span class="o">[</span>Alighting<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">1</span>
+<span class="w">        </span><span class="o">[</span>CurrLoad<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">11</span>
+<span class="w">        </span><span class="o">[</span>Speed<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">74</span>
+<span class="w">        </span><span class="o">[</span>CoveredDistance<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">3261</span>
+<span class="w">        </span><span class="o">[</span>RunTime<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">159</span>
+<span class="w">        </span><span class="o">[</span>RuntimeWithStopTime<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">214</span>
+<span class="w">        </span><span class="o">[</span>SpeedWithStopTime<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">54</span>
+<span class="w">        </span><span class="o">[</span>ArrLoad<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">8</span>
+<span class="w">        </span><span class="o">[</span>PassingTravellers<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">7</span>
+<span class="w">        </span><span class="o">[</span>SeatUsage<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">0</span>.06
+<span class="w">        </span><span class="o">[</span>NumberOfVehicles<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">1</span>
+<span class="w">        </span><span class="o">[</span>DepartureLineNumber<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">35</span>
+<span class="w">        </span><span class="o">[</span>VehicleOwnerID<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">603203</span>
+<span class="w">        </span><span class="o">[</span>CarOrderPos<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span>H
+<span class="w">        </span><span class="o">[</span>StopName<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span>Barkarby
+<span class="w">        </span><span class="o">[</span>StopNumber<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">6051</span>
+<span class="w">        </span><span class="o">[</span>DepTerminal<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span>Kungsängen
+<span class="w">        </span><span class="o">[</span>ArrTerminal<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span>Västerhaninge
+<span class="w">    </span><span class="o">)</span>
+<span class="o">[</span><span class="m">1</span><span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span>Array
+<span class="w">    </span><span class="o">(</span>
+<span class="w">        </span><span class="o">[</span>Day<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">20121210</span>
+<span class="w">        </span><span class="o">[</span>ObsID<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">1</span>.5684401000022E+25
+<span class="w">        </span><span class="o">[</span>DepTime<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">15</span>:02:09
+<span class="w">        </span><span class="o">[</span>ArrTime<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">15</span>:01:14
+<span class="w">        </span><span class="o">[</span>DwellTime<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">0</span>
+<span class="w">        </span><span class="o">[</span>StopTime<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">55</span>
+<span class="w">        </span><span class="o">[</span>Boarding<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">8</span>
+<span class="w">        </span><span class="o">[</span>Alighting<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">0</span>
+<span class="w">        </span><span class="o">[</span>CurrLoad<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">35</span>
+<span class="w">        </span><span class="o">[</span>Speed<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">74</span>
+<span class="w">        </span><span class="o">[</span>CoveredDistance<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">3261</span>
+<span class="w">        </span><span class="o">[</span>RunTime<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">159</span>
+<span class="w">        </span><span class="o">[</span>RuntimeWithStopTime<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">214</span>
+<span class="w">        </span><span class="o">[</span>SpeedWithStopTime<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">54</span>
+<span class="w">        </span><span class="o">[</span>ArrLoad<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">27</span>
+<span class="w">        </span><span class="o">[</span>PassingTravellers<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">27</span>
+<span class="w">        </span><span class="o">[</span>SeatUsage<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">0</span>.19
+<span class="w">        </span><span class="o">[</span>NumberOfVehicles<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">1</span>
+<span class="w">        </span><span class="o">[</span>DepartureLineNumber<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">35</span>
+<span class="w">        </span><span class="o">[</span>VehicleOwnerID<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">603203</span>
+<span class="w">        </span><span class="o">[</span>CarOrderPos<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span>G
+<span class="w">        </span><span class="o">[</span>StopName<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span>Barkarby
+<span class="w">        </span><span class="o">[</span>StopNumber<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span><span class="m">6051</span>
+<span class="w">        </span><span class="o">[</span>DepTerminal<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span>Kungsängen
+<span class="w">        </span><span class="o">[</span>ArrTerminal<span class="o">]</span><span class="w"> </span><span class="o">=</span>&gt;<span class="w"> </span>Västerhaninge
+<span class="w">    </span><span class="o">)</span>
+...
+</pre></div>
 <p>Using something as simple as microtime for timing find_departing_trains results with 0.0029921531677246 seconds.</p>
 </div>
 <div class="section" id="php-ext-rs-instead-of-ffi">
