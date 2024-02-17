@@ -1,0 +1,271 @@
+Part 1: Rust in PHP
+#################################
+
+:date: 2024-02-17 19:03
+:modified: 2024-02-17 19:03
+:tags: Rust, PHP, FFI
+:category: tech
+:slug: rust-in-php
+:authors: Hanadi
+:summary: Part 1: How to use Rust for high load code in PHP!
+
+Hypothesis: In PHP projects, executing high load code using Rust instead of PHP results in higher performance.
+
+Use case: A simple idea, rather useless but to prove a point, our project accepts a location (in Stockholm)
+and a time (%H:%M:%S) in order to fetch all the trains that would depart from the location in the entered time up to 10 minute.
+
+Strategy: Build two implementations of finding the trains that would depart from a given location after a given time within 10 minutes.
+One using pure PHP, one using Rust in PHP. Compare performance of both implementations and decide the results of the hypothesis.
+
+The complete code is here: `Github repo <https://github.com/hanadi92/rust-in-php>`_.
+
+Dataset
+-------
+The dataset consist of train timetable. It has 2566 records and was taken from `kaggle <https://www.kaggle.com/datasets/abdeaitali/commuter-train-timetable>`_.
+It was chosen because of its acceptable size. We should be able to point the performance difference of using this dataset in PHP and Rust.
+
+The dataset contains many information about each train, we only are concerned about the departure terminal and the departure time.
+
+Rust
+----
+First we define what we would like to deserialize the records of the dataset into, we call it Train:
+
+.. code-block:: rust
+
+    #[derive(Debug, Deserialize, Serialize)]
+    struct Train {
+        #[serde(rename = "DepTime")]
+        dep_time: String,
+        #[serde(rename = "DepTerminal")]
+        dep_terminal: String,
+        // many other fields
+    }
+
+Then we read the csv and deserialize the records into a vector of trains:
+
+.. code-block:: rust
+
+    let trains: Vec<Train> = ReaderBuilder::new()
+        .delimiter(b',')
+        .has_headers(true)
+        .flexible(true)
+        .from_path("mini_data.csv")
+        .expect("Error reading CSV file")
+        .deserialize()
+        .filter_map(|result| result.ok())
+        .collect();
+
+
+We could then define two functions for the Train implementation, one to check the departing soon condition and one to check the departing from condition:
+
+.. code-block:: rust
+
+    fn is_departing_soon(&self, current_time: &NaiveTime) -> bool {
+        let train_departure_time = NaiveTime::from_str(&self.dep_time).unwrap();
+        let time_difference = train_departure_time.signed_duration_since(*current_time);
+
+        // Check if the train departure time is greater than the current time
+        // and the time difference is less than or equal to 10 minutes (600 seconds).
+        train_departure_time > *current_time && time_difference.num_seconds() <= 600
+    }
+    fn is_departing_from(&self, current_place: &String) -> bool {
+        let train_departure_place = &self.dep_terminal;
+        train_departure_place == current_place
+    }
+
+At that point we could simply filter the vector of trains with the conditions:
+
+.. code-block:: rust
+
+    // Filter departing trains based on time
+    let departing_trains: Vec<&Train> = trains
+        .iter()
+        .filter(|train| train.is_departing_soon(&current_time) && train.is_departing_from(&current_place_str))
+        .collect();
+
+
+FFI or no FFI
+-------------
+After some research, I decided to measure this by myself. Some experiments said that using FFI produces less performance that no-ffi.
+But we will try this together!
+
+FFI Rust Side
+-------------
+In order to compile the rust code into ``.dll`` or ``.dylib`` or whatever depending on the compiling machine, let's wrap the code with a function
+that accepts the current time and current location to be called from C.
+
+.. code-block:: rust
+
+    #[no_mangle]
+    pub extern "C" fn find_departing_trains(
+        current_time: *const libc::c_char,
+        current_terminal: *const libc::c_char,
+    ) -> *const libc::c_char {
+        let current_time_str = unsafe { CStr::from_ptr(current_time).to_string_lossy().into_owned() };
+        let current_place_str = unsafe { CStr::from_ptr(current_terminal).to_string_lossy().into_owned() };
+        // Parse the current_time string into a NaiveTime
+        let current_time = NaiveTime::from_str(&current_time_str).unwrap();
+
+        // ... code from above
+
+        // Convert departing_trains to a JSON string or any other suitable format
+        let result = serde_json::to_string(&departing_trains).unwrap();
+        // Allocate a CString with the result string
+        let result_cstring = CString::new(result).unwrap();
+        // Transfer ownership to the caller and obtain a raw pointer
+        let result_ptr = result_cstring.into_raw();
+        // Convert the raw pointer to a mutable pointer
+        result_ptr as *mut libc::c_char
+
+
+We also need to free the memory allocated by rust:
+
+.. code-block:: rust
+
+    // Add a function to free the memory allocated by Rust
+    #[no_mangle]
+    pub extern "C" fn free_rust_string(ptr: *mut libc::c_char) {
+        // Convert the pointer back to a CString, and then drop it to free the memory
+        unsafe {
+            let _ = CString::from_raw(ptr);
+        }
+    }
+
+Now we are done with rust and can build a release. Run the following command:
+
+.. code-block:: shell
+
+    cargo build --release
+
+
+This would build the library under ``target/release/something.dylib`` or dll or something.
+
+Bonus! Using rust bench we can see how much time it takes the find_departing_trains function to return. Running the following bench with ``cargo bench``
+results with this ``test tests::bench_workload ... bench:   1,914,349 ns/iter (+/- 113,685)``
+
+.. code-block:: rust
+
+    #[cfg(test)]
+    mod tests {
+        #![feature(test)]
+        extern crate test;
+
+        use std::ffi::{c_char, CString};
+        use test::Bencher;
+        use mytrain::find_departing_trains;
+
+        #[bench]
+        fn bench_workload(b: &mut Bencher) {
+            let c_time_str = CString::new("14:54:20").unwrap();
+            let c_time: *const c_char = c_time_str.as_ptr() as *const c_char;
+            let c_place_str = CString::new("Tokoyo").unwrap();
+            let c_place: *const c_char = c_place_str.as_ptr() as *const c_char;
+
+            b.iter(|| find_departing_trains(c_time, c_place));
+        }
+    }
+
+FFI PHP Side
+------------
+Ok. In PHP we have to make sure we have the FFI extension enabled.
+
+.. code-block:: PHP
+
+    <?php
+    extension_loaded('ffi') or die('FFI extension is not enabled.');
+
+Then we load the functions from the built rust lib with FFI and call the ``find_departing_trains`` function:
+
+.. code-block:: PHP
+
+    <?php
+    // Load the Rust library
+    $ffi = FFI::cdef("
+        char* find_departing_trains(char* current_time, char* current_terminal);
+        void free_rust_string(char* ptr);
+    ", __DIR__ . "/target/release/libmytrain.dylib");
+    $result = $ffi->find_departing_trains("14:54:20", "Kungsängen");
+
+    // Convert the result to a PHP string
+    $resultStr = FFI::string($result);
+    // Free the memory allocated by Rust
+    $ffi->free_rust_string($result);
+    // Deserialize the JSON string into a PHP array
+    $departingTrains = json_decode($resultStr, true);
+    print_r($departingTrains);
+
+Oh, the results would look like this. after running the php file using ``php main.php``:
+
+.. code-block:: shell
+
+    (
+    [0] => Array
+        (
+            [Day] => 20121210
+            [ObsID] => 1.5684401000022E+25
+            [DepTime] => 15:02:09
+            [ArrTime] => 15:01:14
+            [DwellTime] => 0
+            [StopTime] => 55
+            [Boarding] => 4
+            [Alighting] => 1
+            [CurrLoad] => 11
+            [Speed] => 74
+            [CoveredDistance] => 3261
+            [RunTime] => 159
+            [RuntimeWithStopTime] => 214
+            [SpeedWithStopTime] => 54
+            [ArrLoad] => 8
+            [PassingTravellers] => 7
+            [SeatUsage] => 0.06
+            [NumberOfVehicles] => 1
+            [DepartureLineNumber] => 35
+            [VehicleOwnerID] => 603203
+            [CarOrderPos] => H
+            [StopName] => Barkarby
+            [StopNumber] => 6051
+            [DepTerminal] => Kungsängen
+            [ArrTerminal] => Västerhaninge
+        )
+    [1] => Array
+        (
+            [Day] => 20121210
+            [ObsID] => 1.5684401000022E+25
+            [DepTime] => 15:02:09
+            [ArrTime] => 15:01:14
+            [DwellTime] => 0
+            [StopTime] => 55
+            [Boarding] => 8
+            [Alighting] => 0
+            [CurrLoad] => 35
+            [Speed] => 74
+            [CoveredDistance] => 3261
+            [RunTime] => 159
+            [RuntimeWithStopTime] => 214
+            [SpeedWithStopTime] => 54
+            [ArrLoad] => 27
+            [PassingTravellers] => 27
+            [SeatUsage] => 0.19
+            [NumberOfVehicles] => 1
+            [DepartureLineNumber] => 35
+            [VehicleOwnerID] => 603203
+            [CarOrderPos] => G
+            [StopName] => Barkarby
+            [StopNumber] => 6051
+            [DepTerminal] => Kungsängen
+            [ArrTerminal] => Västerhaninge
+        )
+    ...
+
+
+Using something as simple as microtime for timing find_departing_trains results with 0.0029921531677246 seconds.
+
+Part 2
+------
+In Part 2, we will cover the following:
+- Using php-ext-rs instead of FFI.
+- Pure PHP Impl with benchmarking and comparison against using Rust.
+- The results of the hypothesis.
+
+
+Stay tuned!
