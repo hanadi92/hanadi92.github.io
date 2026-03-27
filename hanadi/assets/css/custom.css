@@ -1,0 +1,12 @@
+/* give Post thumbnails rounded corners */
+article img,
+.thumbnail img,
+.article-thumb img {
+    border-radius: 12px;
+}
+article figure,
+.thumbnail,
+.article-thumb {
+    border-radius: 12px;
+    overflow: hidden;
+}
