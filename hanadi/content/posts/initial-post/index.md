@@ -2,6 +2,8 @@
 date = '2026-03-27T13:22:25+03:00'
 draft = false
 title = 'Initial Post'
+description = 'My first blog post'
+summary = 'My first blog post'
 +++
 
 Every project starts with an `initial commit`.
