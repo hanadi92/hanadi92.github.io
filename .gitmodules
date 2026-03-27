@@ -1,0 +1,4 @@
+[submodule "hanadi/themes/blowfish"]
+	path = hanadi/themes/blowfish
+	url = https://github.com/nunocoracao/blowfish.git
+	branch = main
