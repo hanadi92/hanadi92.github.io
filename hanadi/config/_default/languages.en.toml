@@ -2,17 +2,35 @@ disabled = false
 languageCode = "en"
 languageName = "English"
 weight = 1
-title = "Blowfish"
+title = "Hanadi"
 
 [params]
-  displayName = "EN"
-  isoCode = "en"
-  rtl = false
-  dateFormat = "2 January 2006"
+displayName = "EN"
+isoCode = "en"
+rtl = false
+dateFormat = "2 January 2006"
   # logo = "img/logo.png"
   # secondaryLogo = "img/secondary-logo.png"
   # description = "My awesome website"
   # copyright = "Copy, _right?_ :thinking_face:"
+
+[params.author]
+name = "Hanadi"
+headline = "A generally awesome human"
+
+[[params.author.links]]
+email = "hanadi.tamimi@gmail.com"
+
+[[params.author.links]]
+github = "https://github.com/hanadi92"
+
+[[params.author.links]]
+linkedin = "https://www.linkedin.com/in/hanadi-tamimi/"
+
+["params.author"]
+name = "Hanadi"
+email = "hanadi.tamimi@gmail.com"
+
 
 # [params.author]
 #   name = "Your name here"

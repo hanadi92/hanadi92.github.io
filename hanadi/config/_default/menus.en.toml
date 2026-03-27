@@ -1,14 +1,28 @@
-# -- Main Menu --
-# The main menu is displayed in the header at the top of the page.
-# Acceptable parameters are name, pageRef, page, url, title, weight.
-# 
-# The simplest menu configuration is to provide:
-#   name = The name to be displayed for this menu link
-#   pageRef = The identifier of the page or section to link to
-#
-# By default the menu is ordered alphabetically. This can be
-# overridden by providing a weight value. The menu will then be
-# ordered by weight from lowest to highest.
+[[main]]
+none = "none"
+
+[[main]]
+name = "Posts"
+pageRef = "posts"
+identifier = "u57jq7N0jn"
+weight = 9_999
+
+[[main]]
+pre = "rss"
+url = "/posts/index.xml"
+#pageRef = "posts/index.xml"
+identifier = "sevf6epleR"
+weight = 9_999
+
+[[main]]
+pre = "ko-fi"
+url = "https://ko-fi.com/htamimi/tip"
+identifier = "ko-fi"
+weight = 9_999
+
+[[footer]]
+none = "none"
+
 
 #[[main]]
 #  name = "Blog"
