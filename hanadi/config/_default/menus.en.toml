@@ -14,11 +14,11 @@ url = "/posts/index.xml"
 identifier = "sevf6epleR"
 weight = 9_999
 
-[[main]]
-pre = "ko-fi"
-url = "https://ko-fi.com/htamimi/tip"
-identifier = "ko-fi"
-weight = 9_999
+# [[main]]
+# pre = "ko-fi"
+# url = "https://ko-fi.com/htamimi/tip"
+# identifier = "ko-fi"
+# weight = 9_999
 
 [[footer]]
 none = "none"
